@@ -25,7 +25,7 @@ async def delete_data():
 
 @app.get("/chat/init")
 def init_chat():
-    chat = models.Chat(message="Welcome to the Human Rights AI Assistant! 🌟\n\nI'm here to help you navigate the complex world of human rights and criminal defense. Whether you have questions about laws, rights, or legal processes, I'm at your service. Remember, while I can provide information and guidance, it's always best to consult with a qualified human lawyer for personalized legal advice.\n\nHow can I assist you today?", role=models.ChatRole.USER)
+    chat = models.Chat(message="Welcome to the AI Rights Lawyer! 🌟\n\nI'm here to help you navigate the complex world of AI rights. Whether you have questions about laws, rights, or legal processes, I'm at your service. Remember, while I can provide information and guidance, it's always best to consult with a qualified human lawyer for personalized legal advice.\n\nHow can I assist you today?", role=models.ChatRole.USER)
     return {"message": "Chat initialized"}
 
 

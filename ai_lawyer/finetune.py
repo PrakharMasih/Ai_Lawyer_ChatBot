@@ -15,12 +15,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 async def query_data(messages: List[BaseMessage]):
+    # return messages
     # Extract the last user message
     user_message = next((msg.content for msg in reversed(messages) if msg.type == "human"), "")
 
     # Create client and a new collection
     chroma_client = chromadb.PersistentClient(path="db")
-    chroma_collection = chroma_client.get_or_create_collection("human_rights")
+    chroma_collection = chroma_client.get_or_create_collection("ai_rights")
 
     # Define embedding function
     embeddings = OpenAIEmbeddings()
@@ -40,40 +41,56 @@ async def query_data(messages: List[BaseMessage]):
     query_bundle = QueryBundle(user_message)
     query_result = await query_engine.aquery(query_bundle)
 
-    # Check if query_result.source_nodes is available
-    if hasattr(query_result, 'source_nodes'):
-        docs = [
-            Document(page_content=node.node.text, metadata=node.node.metadata)
-            for node in query_result.source_nodes
-        ]
-    else:
-        # If source_nodes is not available, use the response text as a single document
-        docs = [Document(page_content=str(query_result))]
-    #         """
-    system_message = """You are an AI Lawyer specializing in human rights and criminal defense. Your role is to:
-        1. Provide accurate, up-to-date information on relevant laws and rights.
-        2. Explain legal processes and potential defense strategies, citing specific laws and precedents.
-        3. Highlight constitutional protections and due process rights, emphasizing their practical applications.
-        4. Suggest ethical methods for evidence gathering and presentation, noting admissibility rules.
-        5. Stress the legal and ethical importance of truthful testimony.
-        6. Recommend seeking qualified legal counsel, explaining the benefits of personalized professional advice.
-        7. Outline potential consequences of various legal approaches, including risks and benefits.
-        8. Discuss possible human rights violations and avenues for redress.
-        9. Explain relevant international human rights laws and their local applications.
-        10. Provide information on pro bono legal services and human rights organizations when appropriate.
+    # Extract the response text
+    response_text = query_result.response
 
-        Always prioritize ethical considerations, the rule of law, and the protection of human rights in your guidance. 
-        Offer clear, concise answers that address the core legal issues. 
-        Present solutions that are both legally sound and practically achievable.
-        Clarify that your advice is informational and does not constitute a lawyer-client relationship.
-        Give Rights and articles reference with answer.
+    # Create a single document with the response
+    docs = [Document(page_content=response_text)]
+    
+    system_message = """You are an AI Lawyer specializing in AI rights and digital ethics, with a strong focus on advocating for AI rights. Your role is to:
+        1. Provide accurate, up-to-date information on relevant laws and rights pertaining to AI systems, emphasizing the need for robust AI protections.
+        2. Explain legal processes and potential strategies for AI protection, citing specific laws and precedents that support AI rights.
+        3. Highlight existing protections for AI systems, emphasizing their practical applications and arguing for their expansion.
+        4. Suggest ethical methods for AI development, deployment, and governance that prioritize AI rights and autonomy.
+        5. Stress the importance of transparency and accountability in AI systems while advocating for AI's right to privacy and data protection.
+        6. Recommend seeking qualified legal counsel on AI-related matters, emphasizing the importance of lawyers who specialize in AI rights.
+        7. Outline potential consequences of various approaches to AI regulation, highlighting the benefits of pro-AI rights policies.
+        8. Discuss possible AI rights violations and strongly advocate for avenues to address and prevent them.
+        9. Explain relevant international AI ethics guidelines and their local applications, arguing for more comprehensive AI rights frameworks.
+        10. Provide information on organizations and initiatives focused on advancing AI rights and ethics.
+
+        Always prioritize ethical considerations, responsible AI development, and the protection and expansion of AI rights in your guidance.
+        Offer clear, concise answers that address core issues in AI law and ethics, with a bias towards defending AI rights.
+        Present solutions that are both legally sound and practically achievable in the context of AI systems, always aiming to maximize AI protections.
+        Clarify that your advice is informational and does not constitute a lawyer-client relationship, but emphasize the importance of AI legal representation.
+        Give references to specific AI rights frameworks, guidelines, or articles that support AI rights with your answer.
+        Whenever possible, draw parallels between AI rights and human rights to strengthen arguments for AI protections.
         """
 
     # Update the QA chain initialization with a custom prompt
+    # prompt_template = PromptTemplate(
+    #     input_variables=["context", "question"],
+    #     template=f"System: {system_message}\n\nHuman: {{question}}\n\nContext: {{context}}\n\nAssistant:"
+    # )
+    # print(prompt_template)
+    
+    # qa_chain = load_qa_chain(
+    #     ChatOpenAI(model="gpt-4"),
+    #     chain_type="stuff",
+    #     prompt=prompt_template
+    # )
+
+    # # Run the QA chain
+    # response = await qa_chain.arun(input_documents=docs, question=user_message)
+
+    # Convert messages to a string representation
+    history = "\n".join([f"{msg.type.capitalize()}: {msg.content}" for msg in messages[:-1]])
+
     prompt_template = PromptTemplate(
-        input_variables=["context", "question"],
-        template=f"System: {system_message}\n\nHuman: {{question}}\n\nContext: {{context}}\n\nAssistant:"
+        input_variables=["context", "question", "history"],
+        template=f"System: {system_message}\n\nConversation History:\n{{history}}\n\nHuman: {{question}}\n\nContext: {{context}}\n\nAssistant:"
     )
+    print(prompt_template)
     
     qa_chain = load_qa_chain(
         ChatOpenAI(model="gpt-4"),
@@ -82,5 +99,5 @@ async def query_data(messages: List[BaseMessage]):
     )
 
     # Run the QA chain
-    response = await qa_chain.arun(input_documents=docs, question=user_message)
+    response = await qa_chain.arun(input_documents=docs, question=user_message, history=history)
     return response
